@@ -1,0 +1,21 @@
+enhance: improve UI and content rendering across the application
+
+- Resume improvements:
+  - Add proper LaTeX source code display with syntax highlighting
+  - Create visually appealing LaTeX document preview with proper formatting
+  - Add direct download button and Overleaf integration link
+
+- Tab navigation:
+  - Increase spacing between tabs for better readability
+  - Add subtle lift effect for active tab
+  - Improve tab content container styling
+
+- Content rendering:
+  - Properly format Cover Letter with HTML rendering
+  - Fix Interview Prep markdown rendering
+  - Implement responsive two-column layout for LaTeX view
+
+- CSS enhancements:
+  - Add specialized styling for LaTeX and markdown content
+  - Improve typography and spacing throughout the app
+  - Create consistent color scheme and styling across all components 
