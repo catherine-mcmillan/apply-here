@@ -44,3 +44,6 @@ Thumbs.db
 # Application specific
 uploads/
 temp/
+
+# Other
+implementation_plan.md

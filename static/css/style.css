@@ -1,0 +1,79 @@
+/* Main styling */
+body {
+    font-family: 'Inter', sans-serif;
+    color: #333;
+}
+
+/* Header styling */
+h1,
+h2,
+h3,
+h4 {
+    font-weight: 700;
+    color: #1f2937;
+}
+
+/* Button styling */
+.stButton>button {
+    background-color: #4338ca;
+    color: white;
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    border: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.stButton>button:hover {
+    background-color: #3730a3;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* File uploader styling */
+.uploadedFile {
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+/* Tab styling */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 1px;
+}
+
+.stTabs [data-baseweb="tab"] {
+    height: 50px;
+    white-space: pre-wrap;
+    background-color: #f3f4f6;
+    border-radius: 6px 6px 0 0;
+    gap: 1px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+.stTabs [aria-selected="true"] {
+    background-color: #4338ca;
+    color: white;
+}
+
+/* Card styling for results */
+.css-1r6slb0 {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    background-color: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Spinner styling */
+.stSpinner>div {
+    border-color: #4338ca !important;
+}
+
+/* Text area styling */
+textarea {
+    border-radius: 6px !important;
+    border-color: #e5e7eb !important;
+}
