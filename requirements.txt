@@ -5,6 +5,6 @@ PyPDF2>=3.0.0
 pytest>=7.4.0
 python-dotenv>=1.0.0
 requests>=2.31.0
-pylatexenc>=3.0.0
+pylatexenc>=3.0a32
 responses>=0.23.0
 tqdm>=4.66.0

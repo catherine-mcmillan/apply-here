@@ -1,7 +1,13 @@
 import os
+import logging
 import anthropic
 import json
+import re
 from dotenv import load_dotenv
+from tqdm import tqdm
+
+# Configure logging
+logger = logging.getLogger("apply-here.anthropic_client")
 
 # Load environment variables
 load_dotenv()
@@ -9,8 +15,18 @@ load_dotenv()
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 CLAUDE_MODEL = "claude-3-7-sonnet-20250219"  # Use the latest model as mentioned in the documentation
 
+def check_api_key():
+    """Check if the Anthropic API key is set"""
+    if not ANTHROPIC_API_KEY:
+        error_msg = "ANTHROPIC_API_KEY environment variable not set. Please set it in .env file or environment variables."
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+
 # Initialize Anthropic client
-client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+def get_client():
+    """Get initialized Anthropic client with API key validation"""
+    check_api_key()
+    return anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
 def get_resume_suggestions(resume_text, job_description):
     """
@@ -23,9 +39,15 @@ def get_resume_suggestions(resume_text, job_description):
     Returns:
         dict: Dictionary containing different categories of suggestions
     """
-    system_prompt = "You are a professional Resume coach. Your job is to help candidates tailor their resume to fit a job description and highlight their skills in the best light. You should also attempt to keep them human and approachable."
-    
-    user_prompt = f"""You are an expert resume reviewer tasked with providing a comprehensive review of a resume. Your goal is to help improve the resume and assess its fit for a potential job opportunity. Follow these instructions carefully:
+    with tqdm(total=100, desc="Generating resume suggestions", 
+              bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}") as pbar:
+        
+        pbar.update(10)
+        logger.info("Preparing system prompt for resume suggestions")
+        
+        system_prompt = "You are a professional Resume coach. Your job is to help candidates tailor their resume to fit a job description and highlight their skills in the best light. You should also attempt to keep them human and approachable."
+        
+        user_prompt = f"""You are an expert resume reviewer tasked with providing a comprehensive review of a resume. Your goal is to help improve the resume and assess its fit for a potential job opportunity. Follow these instructions carefully:
 
 1. First, carefully read and analyze the contents of the resume provided in the following La-Tex formatted resume:
 <resume_La-Tex>
@@ -73,40 +95,72 @@ def get_resume_suggestions(resume_text, job_description):
 
 9. Your final output should only include the content within these four XML tags. Do not include any additional commentary or notes outside of these sections."""
 
-    # Call Anthropic API
-    response = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=20000,
-        temperature=1,
-        system=system_prompt,
-        messages=[
-            {
-                "role": "user",
-                "content": [
+        pbar.update(10)
+        logger.info("Calling Anthropic API for resume suggestions")
+        
+        try:
+            # Get Anthropic client
+            client = get_client()
+            
+            # Call Anthropic API
+            response = client.messages.create(
+                model=CLAUDE_MODEL,
+                max_tokens=20000,
+                temperature=1,
+                system=system_prompt,
+                messages=[
                     {
-                        "type": "text",
-                        "text": user_prompt
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": user_prompt
+                            }
+                        ]
                     }
                 ]
+            )
+            
+            pbar.update(60)
+            logger.info("Successfully received response from Anthropic API for resume suggestions")
+            
+            # Extract the content from the response
+            response_text = response.content[0].text
+            
+            # Parse the XML-like structure to extract the sections
+            language_suggestions = _extract_section(response_text, "language_suggestions")
+            inclusion_questions = _extract_section(response_text, "inclusion_questions")
+            copy_edit_suggestions = _extract_section(response_text, "copy_edit_suggestions")
+            general_summary = _extract_section(response_text, "general_summary")
+            
+            pbar.update(20)
+            
+            return {
+                "language_suggestions": language_suggestions,
+                "inclusion_questions": inclusion_questions,
+                "copy_edit_suggestions": copy_edit_suggestions,
+                "general_summary": general_summary
             }
-        ]
-    )
-    
-    # Extract the content from the response
-    response_text = response.content[0].text
-    
-    # Parse the XML-like structure to extract the sections
-    language_suggestions = _extract_section(response_text, "language_suggestions")
-    inclusion_questions = _extract_section(response_text, "inclusion_questions")
-    copy_edit_suggestions = _extract_section(response_text, "copy_edit_suggestions")
-    general_summary = _extract_section(response_text, "general_summary")
-    
-    return {
-        "language_suggestions": language_suggestions,
-        "inclusion_questions": inclusion_questions,
-        "copy_edit_suggestions": copy_edit_suggestions,
-        "general_summary": general_summary
-    }
+            
+        except ValueError as e:
+            # Error from API key validation
+            logger.error(f"API key error: {str(e)}")
+            raise
+        except anthropic.APIError as e:
+            error_msg = f"Anthropic API error: {str(e)}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
+        except anthropic.RateLimitError as e:
+            error_msg = f"Anthropic rate limit exceeded: {str(e)}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
+        except Exception as e:
+            error_msg = f"Unexpected error when generating resume suggestions: {str(e)}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
+        finally:
+            # Ensure progress bar completes
+            pbar.update(100 - pbar.n)
 
 def generate_cover_letter(resume_text, job_description, company_info):
     """
@@ -120,9 +174,15 @@ def generate_cover_letter(resume_text, job_description, company_info):
     Returns:
         str: Generated cover letter
     """
-    system_prompt = "You are a professional cover letter writer. Your job is to help candidates create compelling, tailored cover letters that showcase their qualifications and align with the company's values and needs."
-    
-    user_prompt = f"""Create a professional, tailored cover letter based on the candidate's resume, the job description, and information about the company. Follow these instructions:
+    with tqdm(total=100, desc="Generating cover letter", 
+              bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}") as pbar:
+        
+        pbar.update(10)
+        logger.info("Preparing system prompt for cover letter generation")
+        
+        system_prompt = "You are a professional cover letter writer. Your job is to help candidates create compelling, tailored cover letters that showcase their qualifications and align with the company's values and needs."
+        
+        user_prompt = f"""Create a professional, tailored cover letter based on the candidate's resume, the job description, and information about the company. Follow these instructions:
 
 1. Review the candidate's resume:
 <resume>
@@ -157,27 +217,59 @@ def generate_cover_letter(resume_text, job_description, company_info):
 
 Output only the completed cover letter text with no additional explanations or notes."""
 
-    # Call Anthropic API
-    response = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=4000,
-        temperature=0.7,
-        system=system_prompt,
-        messages=[
-            {
-                "role": "user",
-                "content": [
+        pbar.update(10)
+        logger.info("Calling Anthropic API for cover letter generation")
+        
+        try:
+            # Get Anthropic client
+            client = get_client()
+            
+            # Call Anthropic API
+            response = client.messages.create(
+                model=CLAUDE_MODEL,
+                max_tokens=4000,
+                temperature=0.7,
+                system=system_prompt,
+                messages=[
                     {
-                        "type": "text",
-                        "text": user_prompt
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": user_prompt
+                            }
+                        ]
                     }
                 ]
-            }
-        ]
-    )
-    
-    # Return the generated cover letter
-    return response.content[0].text
+            )
+            
+            pbar.update(70)
+            logger.info("Successfully received response from Anthropic API for cover letter")
+            
+            # Return the generated cover letter
+            result = response.content[0].text
+            pbar.update(10)
+            return result
+            
+        except ValueError as e:
+            # Error from API key validation
+            logger.error(f"API key error: {str(e)}")
+            raise
+        except anthropic.APIError as e:
+            error_msg = f"Anthropic API error: {str(e)}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
+        except anthropic.RateLimitError as e:
+            error_msg = f"Anthropic rate limit exceeded: {str(e)}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
+        except Exception as e:
+            error_msg = f"Unexpected error when generating cover letter: {str(e)}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
+        finally:
+            # Ensure progress bar completes
+            pbar.update(100 - pbar.n)
 
 def create_interview_prep(resume_text, job_description, company_info):
     """
@@ -191,9 +283,15 @@ def create_interview_prep(resume_text, job_description, company_info):
     Returns:
         str: Generated interview prep cheat sheet
     """
-    system_prompt = "You are a professional interview coach. Your job is to help candidates prepare for job interviews by providing them with tailored preparation materials and insights."
-    
-    user_prompt = f"""Create a comprehensive interview prep cheat sheet for a candidate based on their resume, the job description, and company information. Follow these instructions:
+    with tqdm(total=100, desc="Creating interview prep materials", 
+              bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}") as pbar:
+        
+        pbar.update(10)
+        logger.info("Preparing system prompt for interview prep materials")
+        
+        system_prompt = "You are a professional interview coach. Your job is to help candidates prepare for job interviews by providing them with tailored preparation materials and insights."
+        
+        user_prompt = f"""Create a comprehensive interview prep cheat sheet for a candidate based on their resume, the job description, and company information. Follow these instructions:
 
 1. Review the candidate's resume:
 <resume>
@@ -236,27 +334,59 @@ def create_interview_prep(resume_text, job_description, company_info):
 
 Output only the completed interview prep cheat sheet with appropriate section headings and formatting. Do not include additional explanations or notes."""
 
-    # Call Anthropic API
-    response = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=7000,
-        temperature=0.7,
-        system=system_prompt,
-        messages=[
-            {
-                "role": "user",
-                "content": [
+        pbar.update(10)
+        logger.info("Calling Anthropic API for interview prep materials")
+        
+        try:
+            # Get Anthropic client
+            client = get_client()
+            
+            # Call Anthropic API
+            response = client.messages.create(
+                model=CLAUDE_MODEL,
+                max_tokens=7000,
+                temperature=0.7,
+                system=system_prompt,
+                messages=[
                     {
-                        "type": "text",
-                        "text": user_prompt
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": user_prompt
+                            }
+                        ]
                     }
                 ]
-            }
-        ]
-    )
-    
-    # Return the generated interview prep cheat sheet
-    return response.content[0].text
+            )
+            
+            pbar.update(70)
+            logger.info("Successfully received response from Anthropic API for interview prep materials")
+            
+            # Return the generated interview prep cheat sheet
+            result = response.content[0].text
+            pbar.update(10)
+            return result
+            
+        except ValueError as e:
+            # Error from API key validation
+            logger.error(f"API key error: {str(e)}")
+            raise
+        except anthropic.APIError as e:
+            error_msg = f"Anthropic API error: {str(e)}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
+        except anthropic.RateLimitError as e:
+            error_msg = f"Anthropic rate limit exceeded: {str(e)}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
+        except Exception as e:
+            error_msg = f"Unexpected error when creating interview prep materials: {str(e)}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
+        finally:
+            # Ensure progress bar completes
+            pbar.update(100 - pbar.n)
 
 def _extract_section(text, section_name):
     """
@@ -269,10 +399,18 @@ def _extract_section(text, section_name):
     Returns:
         str: Content of the section
     """
-    import re
-    pattern = f"<{section_name}>(.*?)</{section_name}>"
-    match = re.search(pattern, text, re.DOTALL)
-    
-    if match:
-        return match.group(1).strip()
-    return "Section not found in the response"
+    try:
+        pattern = f"<{section_name}>(.*?)</{section_name}>"
+        match = re.search(pattern, text, re.DOTALL)
+        
+        if match:
+            extracted_text = match.group(1).strip()
+            logger.debug(f"Successfully extracted '{section_name}' section with {len(extracted_text)} characters")
+            return extracted_text
+        else:
+            logger.warning(f"Section '{section_name}' not found in the response")
+            return f"Section '{section_name}' not found in the response."
+    except Exception as e:
+        error_msg = f"Error extracting section '{section_name}': {str(e)}"
+        logger.error(error_msg)
+        return f"Error extracting section: {str(e)}"

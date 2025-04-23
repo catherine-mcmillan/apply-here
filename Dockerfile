@@ -7,6 +7,10 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
+# Make the run script executable
+RUN chmod +x run.py
+
 EXPOSE 8080
 
-CMD ["streamlit", "run", "app.py", "--server.port=8080", "--server.address=0.0.0.0"]
+# Use the Procfile for command execution
+CMD ["sh", "-c", "python run.py --port 8080 --address 0.0.0.0"]
